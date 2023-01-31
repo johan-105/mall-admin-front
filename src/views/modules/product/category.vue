@@ -1,9 +1,14 @@
 <template>
   <el-tree
-    :data='data'
+    :data='categories'
+    node-key="catId"
+    show-checkbox
     :props='defaultProps'
-    @node-click='handleNodeClick'
-  ></el-tree>
+    :expand-on-click-node="false"
+    :default-expanded-keys="expandedKeys"
+    :render-content="renderContent"
+  >
+  </el-tree>
 </template>
 
 <script>
@@ -17,10 +22,11 @@ export default {
   data () {
     // 这里存放数据
     return {
-      data: [],
+      categories: [],
+      expandedKeys: [],
       defaultProps: {
         children: 'children',
-        label: 'label'
+        label: 'name'
       }
     }
   },
@@ -30,10 +36,65 @@ export default {
   watch: {},
   // 方法集合
   methods: {
+    getDataList () {
+      this.dataListLoading = true
+      this.$http({
+        url: this.$http.adornUrl('/product/category/list/tree'),
+        method: 'get'
+      }).then(({ data }) => {
+        this.categories = data.categories
+        console.log(this.categories)
+      })
+    },
+    append (node, data) {
+    },
 
+    remove (node, data) {
+      console.log('data', data)
+      var ids = [data.catId]
+
+      this.$confirm(`确定对[${data.name}]进行删除操作?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.$http({
+          url: this.$http.adornUrl('/product/category/delete'),
+          method: 'delete',
+          data: this.$http.adornData(ids, false)
+        }).then(({ data }) => {
+          if (data && data.code === 0) {
+            this.$message({
+              message: '操作成功',
+              type: 'success',
+              duration: 1500,
+              onClose: () => {
+                this.getDataList()
+                // 自动展开被删结点的父节点
+                this.expandedKeys = [node.parent.data.catId]
+              }
+            })
+          } else {
+            this.$message.error(data.msg)
+          }
+        })
+      }).catch(() => { })
+    },
+    renderContent (h, { node, data, store }) {
+      return (
+        <span class="custom-tree-node">
+          <span>{node.label}</span>
+          <span>
+            <el-button size="mini" type="text" on-click={() => this.append(data)}>Append</el-button>
+            <el-button size="mini" type="text" on-click={() => this.remove(node, data)}>Delete</el-button>
+          </span>
+        </span>)
+    }
   },
   // 生命周期 - 创建完成（可以访问当前 this 实例）
-  created () { },
+  created () {
+    this.getDataList()
+  },
   // 生命周期 - 挂载完成（可以访问 DOM 元素）
   mounted () { },
   beforeCreate () { }, // 生命周期 - 创建之前
@@ -46,5 +107,12 @@ export default {
 }
 </script>
 <style lang='scss' scoped>
-//@import url(); 引入公共 css 类
+.custom-tree-node {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  padding-right: 8px;
+}
 </style>
