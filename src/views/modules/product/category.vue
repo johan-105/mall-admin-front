@@ -1,14 +1,78 @@
 <template>
-  <el-tree
-    :data='categories'
-    node-key="catId"
-    show-checkbox
-    :props='defaultProps'
-    :expand-on-click-node="false"
-    :default-expanded-keys="expandedKeys"
-    :render-content="renderContent"
-  >
-  </el-tree>
+  <div>
+    <el-tree
+      :data='categories'
+      node-key="catId"
+      show-checkbox
+      :props='defaultProps'
+      :expand-on-click-node="false"
+      :default-expanded-keys="expandedKeys"
+    >
+      <span slot-scope="{ node, data }">
+        <span>{{ node.label }}</span>
+        <span>
+          <el-button
+            v-if="node.level <= 2"
+            type="text"
+            size="mini"
+            @click="() => append(data)"
+          >
+            Append
+          </el-button>
+          <el-button
+            type="text"
+            size="mini"
+            @click="() => edit(data)"
+          >
+            Edit
+          </el-button>
+          <el-button
+            v-if="node.childNodes.length == 0"
+            type="text"
+            size="mini"
+            @click="() => remove(node, data)"
+          >
+            Delete
+          </el-button>
+        </span>
+      </span>
+    </el-tree>
+    <el-dialog
+      title="新增目录"
+      :visible.sync="dialogFormVisible"
+    >
+      <el-form :model="category">
+        <el-form-item label="分类名称">
+          <el-input
+            v-model="category.name"
+            autocomplete="off"
+          ></el-input>
+        </el-form-item>
+        <el-form-item label="图标">
+          <el-input
+            v-model="category.icon"
+            autocomplete="off"
+          ></el-input>
+        </el-form-item>
+        <el-form-item label="计量单位">
+          <el-input
+            v-model="category.productUnit"
+            autocomplete="off"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+      <div
+        slot="footer"
+        class="dialog-footer"
+      >
+        <el-button @click="dialogFormVisible = false">取 消</el-button>
+        <el-button
+          type="primary"
+          @click="submitData"
+        >确 定</el-button>
+      </div>
+    </el-dialog>
+  </div>
 </template>
 
 <script>
@@ -22,12 +86,24 @@ export default {
   data () {
     // 这里存放数据
     return {
+      category: {
+        name: '',
+        parentCid: 0,
+        catLevel: 0,
+        showStatus: 1,
+        sort: 0,
+        productUnit: '',
+        icon: '',
+        catId: null
+      },
+      dialogType: '', // edit, append
       categories: [],
       expandedKeys: [],
       defaultProps: {
         children: 'children',
         label: 'name'
-      }
+      },
+      dialogFormVisible: false
     }
   },
   // 计算属性 类似于 data 概念
@@ -46,9 +122,76 @@ export default {
         console.log(this.categories)
       })
     },
-    append (node, data) {
+    submitData () {
+      if (this.dialogType === 'append') {
+        this.addCategory()
+      }
+      if (this.dialogType === 'edit') {
+        this.editCategory()
+      }
     },
 
+    append (data) {
+      this.dialogType = 'append'
+      this.dialogFormVisible = true
+      this.category.parentCid = data.catId
+      this.category.catLevel = data.catLevel * 1 + 1
+      this.category.catId = null
+      this.category.name = ''
+      this.category.icon = ''
+      this.category.productUnit = ''
+      this.category.sort = 0
+      this.category.showStatus = 1
+    },
+    addCategory () {
+      this.$http({
+        url: this.$http.adornUrl('/product/category/save'),
+        method: 'post',
+        data: this.$http.adornData(this.category, false)
+      }).then(({ data }) => {
+        this.$message({
+          message: '操作成功',
+          type: 'success'
+        })
+        this.dialogFormVisible = false
+        this.getDataList()
+        // 自动展开被删结点的父节点
+        this.expandedKeys = [this.category.parentCid]
+      })
+    },
+    edit (data) {
+      this.dialogType = 'edit'
+      this.dialogFormVisible = true
+      this.$http({
+        url: this.$http.adornUrl(`/product/category/info/${data.catId}`),
+        method: 'get'
+      }).then(({ data }) => {
+        this.category.name = data.category.name
+        this.category.catId = data.category.catId
+        this.category.icon = data.category.icon
+        this.category.productUnit = data.category.productUnit
+        this.category.parentCid = data.category.parentCid
+        this.category.catLevel = data.category.catLevel
+        this.category.sort = data.category.sort
+        this.category.showStatus = data.category.showStatus
+      })
+    },
+    editCategory () {
+      var { catId, name, icon, productUnit } = this.category
+      this.$http({
+        url: this.$http.adornUrl('/product/category/update'),
+        method: 'put',
+        data: this.$http.adornData({ catId, name, icon, productUnit }, false)
+      }).then(({ data }) => {
+        this.$message({
+          message: '菜单修改成功',
+          type: 'success'
+        })
+        this.dialogFormVisible = false
+        this.getDataList()
+        this.expandedKeys = [this.category.parentCid]
+      })
+    },
     remove (node, data) {
       console.log('data', data)
       var ids = [data.catId]
@@ -79,16 +222,6 @@ export default {
           }
         })
       }).catch(() => { })
-    },
-    renderContent (h, { node, data, store }) {
-      return (
-        <span class="custom-tree-node">
-          <span>{node.label}</span>
-          <span>
-            <el-button size="mini" type="text" on-click={() => this.append(data)}>Append</el-button>
-            <el-button size="mini" type="text" on-click={() => this.remove(node, data)}>Delete</el-button>
-          </span>
-        </span>)
     }
   },
   // 生命周期 - 创建完成（可以访问当前 this 实例）
@@ -107,12 +240,4 @@ export default {
 }
 </script>
 <style lang='scss' scoped>
-.custom-tree-node {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-  padding-right: 8px;
-}
 </style>
