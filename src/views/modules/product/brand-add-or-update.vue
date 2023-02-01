@@ -3,7 +3,7 @@
     :title="!dataForm.brandId ? '新增' : '修改'"
     :close-on-click-modal="false"
     :visible.sync="visible">
-    <el-form :model="dataForm" :rules="dataRule" ref="dataForm" @keyup.enter.native="dataFormSubmit()" label-width="80px">
+    <el-form :model="dataForm" :rules="dataRule" ref="dataForm" @keyup.enter.native="dataFormSubmit()" label-width="140px">
     <el-form-item label="品牌名" prop="name">
       <el-input v-model="dataForm.name" placeholder="品牌名"></el-input>
     </el-form-item>
