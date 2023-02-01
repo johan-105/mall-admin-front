@@ -1,5 +1,9 @@
 <template>
   <div>
+    <el-button
+      type="danger"
+      @click="batchRemove"
+    >批量删除</el-button>
     <el-tree
       :data='categories'
       node-key="catId"
@@ -7,6 +11,7 @@
       :props='defaultProps'
       :expand-on-click-node="false"
       :default-expanded-keys="expandedKeys"
+      ref="categoryTree"
     >
       <span slot-scope="{ node, data }">
         <span>{{ node.label }}</span>
@@ -215,6 +220,37 @@ export default {
                 this.getDataList()
                 // 自动展开被删结点的父节点
                 this.expandedKeys = [node.parent.data.catId]
+              }
+            })
+          } else {
+            this.$message.error(data.msg)
+          }
+        })
+      }).catch(() => { })
+    },
+    batchRemove () {
+      let catIds = []
+      let checkedNodes = this.$refs.categoryTree.getCheckedNodes()
+      for (let i = 0; i < checkedNodes.length; i++) {
+        catIds.push(checkedNodes[i].catId)
+      }
+      this.$confirm(`是否批量删除【${catIds}】菜单?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.$http({
+          url: this.$http.adornUrl('/product/category/delete'),
+          method: 'delete',
+          data: this.$http.adornData(catIds, false)
+        }).then(({ data }) => {
+          if (data && data.code === 0) {
+            this.$message({
+              message: '菜单批量删除成功',
+              type: 'success',
+              duration: 1500,
+              onClose: () => {
+                this.getDataList()
               }
             })
           } else {
